@@ -27,3 +27,12 @@ struct Pokemon: Identifiable, Decodable {
     }
     
 }
+
+struct PokemonDetail: Decodable {
+    let id: Int
+    let name: String
+    let height: Int
+    let weight: Int
+    struct Sprites: Decodable { let frontDefault: String? }
+    let sprites: Sprites
+}
