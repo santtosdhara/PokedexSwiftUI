@@ -14,7 +14,7 @@ class PokemonListViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
-    private let service = PokemonNetwork()
+    private let service = PokemonAPIClient()
     
     func fetchPokemon() async {
         isLoading = true

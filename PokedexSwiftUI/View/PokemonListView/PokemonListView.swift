@@ -20,7 +20,7 @@ struct PokemonListView: View {
                         .foregroundStyle(Color.red)
                 } else {
                     List(viewModel.pokemon) { pokemon in
-                        NavigationLink(destination: PokemonDetailView(pokemon: pokemon)) {
+                        NavigationLink(destination: PokemonDetailView(idOrName: pokemon.numericID ?? pokemon.name)) {
                             Text(pokemon.name.capitalized)
                         }
                     }
