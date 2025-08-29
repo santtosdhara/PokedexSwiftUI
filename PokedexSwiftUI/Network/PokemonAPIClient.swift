@@ -7,12 +7,6 @@
 
 import Foundation
 
-enum FetchError: Error {
-    case badUrl
-    case badResponse
-    case decoding(Error)
-}
-
 struct PokemonListResponse: Decodable {
     let count: Int
     let next: String?
@@ -21,29 +15,40 @@ struct PokemonListResponse: Decodable {
 }
 
 struct PokemonListItem: Decodable, Identifiable {
-    // Give SwiftUI something stable to use as an id
     var id: String { url }
     let name: String
     let url: String
+    
+    var numericID: String? {
+        let parts = url.split(separator: "/").filter { !$0.isEmpty }
+        return parts.last.map(String.init)
+    }
 }
 
-final class PokemonNetwork {
-    //Connection
+final class PokemonAPIClient {
+    
+    private let decoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        return d
+    }()
     
     func getPokemonList(limit: Int = 20, offset: Int = 0) async throws -> PokemonListResponse {
         var comps = URLComponents(string: "https://pokeapi.co/api/v2/pokemon")!
         comps.queryItems = [
-            URLQueryItem(name: "limit", value: "\(limit)"),
-            URLQueryItem(name: "offset", value: "\(offset)")
+            .init(name: "limit", value: String(limit)),
+            .init(name: "offset", value: String(offset))
         ]
-        guard let url = comps.url else { throw FetchError.badUrl }
+        guard let url = comps.url else { throw FetchError.invalidURL }
         
         let (data, response) = try await URLSession.shared.data(from: url)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw FetchError.badResponse }
-        
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        
+        guard let http = response as? HTTPURLResponse else { throw FetchError.badStatus(-1) }
+        guard http.statusCode == 200 else {
+        #if DEBUG
+            if let body = String(data: data, encoding: .utf8) { print("Body:", body) }
+        #endif
+            throw FetchError.badStatus(http.statusCode)
+        }
         do {
             return try decoder.decode(PokemonListResponse.self, from: data)
         } catch {
@@ -51,16 +56,22 @@ final class PokemonNetwork {
         }
     }
     
+    
     func getPokemonDetail(_ idOrName: String) async throws -> PokemonDetail {
         let lower = idOrName.lowercased()
-        guard let url = URL(string: "https://pokeapi.co/api/v2/pokemon/\(lower)") else { throw FetchError.badResponse }
-        
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        guard let url = URL(string: "https://pokeapi.co/api/v2/pokemon/\(lower)") else {
+            throw FetchError.invalidURL
+        }
         
         let (data, response) = try await URLSession.shared.data(from: url)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw FetchError.badResponse }
-
+        guard let http = response as? HTTPURLResponse else { throw FetchError.badStatus(-1) }
+        guard http.statusCode == 200 else {
+        #if DEBUG
+            if let body = String(data: data, encoding: .utf8) { print("Body:", body) }
+        #endif
+            throw FetchError.badStatus(http.statusCode)
+        }
+        
         do {
             return try decoder.decode(PokemonDetail.self, from: data)
         } catch {
@@ -68,8 +79,6 @@ final class PokemonNetwork {
         }
     }
 }
-
-//Extension to remove the nulls
 
 extension Data {
     func removeNullsFrom(string: String) -> Data? {
@@ -79,3 +88,4 @@ extension Data {
         return data
     }
 }
+
